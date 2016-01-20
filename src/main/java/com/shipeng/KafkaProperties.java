@@ -14,6 +14,7 @@ public interface KafkaProperties {
   final static String topic2 = "shipeng_kafka2";
   final static String topic3 = "shipeng_kafka3";
   final static String clientId = "SimpleConsumerDemoClient";
+  final static String KAFKA_TWITTER = "kafka_twitter";
 }
 
 
