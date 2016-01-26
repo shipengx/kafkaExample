@@ -1,6 +1,5 @@
 package com.shipeng.Twitter;
 
-
 import kafka.javaapi.producer.Producer;
 import kafka.producer.KeyedMessage;
 import kafka.producer.ProducerConfig;
@@ -18,6 +17,8 @@ import twitter4j.TwitterStream;
 import twitter4j.TwitterStreamFactory;
 import twitter4j.conf.ConfigurationBuilder;
 import twitter4j.json.DataObjectFactory;
+import twitter4j.GeoLocation;
+
 
 
 public class TwitterProducer {
@@ -45,8 +46,12 @@ public class TwitterProducer {
     Properties props = new Properties();
     props.put("metadata.broker.list", "frak6:9092");
     props.put("serializer.class", "kafka.serializer.StringEncoder");
-    props.put("request.required.acks", "1");
-    
+    props.put("request.required.acks", "0");
+    props.put("retries","0");
+    props.put("retry.backoff.ms","10000");
+    //props.put("producer.type","async");
+
+
     ProducerConfig config = new ProducerConfig(props);
     
     final Producer<String, String> producer = new Producer<String, String>(config);
@@ -77,12 +82,19 @@ public class TwitterProducer {
             // the raw JSON of a tweet
             //logger.info(status.getUser().getScreenName() + ": " + status.getText());
             
-            KeyedMessage<String, String> data = new KeyedMessage<String, String>(topic, status.getText());
-            
+            //KeyedMessage<String, String> data = new KeyedMessage<String, String>(topic, status.getText());
             //KeyedMessage<String, String> data = new KeyedMessage<String, String>(topic, DataObjectFactory.getRawJSON(status));
+            //producer.send(data);
             
-            producer.send(data);
-            
+            GeoLocation geoLocation = status.getGeoLocation();
+            if (geoLocation != null) {
+                String text = status.getText().replaceAll("[\r\n]", " ");
+                String line = geoLocation.getLongitude()+","+geoLocation.getLatitude()+","+status.getCreatedAt().getTime()+","+status.getUser().getId()+","+text;
+                System.out.println("Message is: " + line);
+                KeyedMessage<String, String> data = new KeyedMessage<String, String>(topic, line);
+                producer.send(data);
+            }
+
         }
             
         public void onDeletionNotice(StatusDeletionNotice statusDeletionNotice) {}
@@ -92,6 +104,7 @@ public class TwitterProducer {
         public void onScrubGeo(long userId, long upToStatusId) {}
         
         public void onException(Exception ex) {
+            ex.printStackTrace();
             logger.info("Shutting down Twitter sample stream...");
             //twitterStream.shutdown();
         }
