@@ -47,8 +47,8 @@ public class TwitterProducer {
     props.put("metadata.broker.list", "frak6:9092");
     props.put("serializer.class", "kafka.serializer.StringEncoder");
     props.put("request.required.acks", "0");
-    props.put("retries","0");
-    props.put("retry.backoff.ms","10000");
+    //props.put("retries","0");
+    //props.put("retry.backoff.ms","10000");
     //props.put("producer.type","async");
 
 
@@ -89,7 +89,7 @@ public class TwitterProducer {
             GeoLocation geoLocation = status.getGeoLocation();
             if (geoLocation != null) {
                 String text = status.getText().replaceAll("[\r\n]", " ");
-                String line = geoLocation.getLongitude()+","+geoLocation.getLatitude()+","+status.getCreatedAt().getTime()+","+status.getUser().getId()+","+text;
+                String line = geoLocation.getLongitude()+",,,"+geoLocation.getLatitude()+",,,"+status.getCreatedAt().getTime()+",,,"+status.getUser().getId()+",,,"+text;
                 System.out.println("Message is: " + line);
                 KeyedMessage<String, String> data = new KeyedMessage<String, String>(topic, line);
                 producer.send(data);
