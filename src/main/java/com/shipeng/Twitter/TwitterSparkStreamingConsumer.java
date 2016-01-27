@@ -1,13 +1,13 @@
 package com.shipeng.Twitter;
 
+import com.shipeng.Twitter.DFSchemas.*;
+import com.shipeng.Twitter.functions.*;
 
 import java.util.Map;
 import java.util.HashMap;
 import java.util.regex.Pattern;
 
-
 import scala.Tuple2;
-
 import com.google.common.collect.Lists;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -21,6 +21,29 @@ import org.apache.spark.streaming.api.java.JavaPairReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.kafka.KafkaUtils;
 
+import org.apache.spark.SparkConf;
+import org.apache.spark.SparkContext;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.function.FlatMapFunction;
+import org.apache.spark.api.java.function.Function;
+import org.apache.spark.api.java.function.Function2;
+import org.apache.spark.api.java.function.PairFunction;
+import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.DataFrame;
+import org.apache.spark.api.java.StorageLevels;
+
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.RowFactory;
+import org.apache.spark.sql.SaveMode;
+
+import org.apache.spark.streaming.Duration;
+import org.apache.spark.streaming.Time;
+import org.apache.spark.streaming.api.java.JavaDStream;
+import org.apache.spark.streaming.api.java.JavaPairDStream;
+import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
+import org.apache.spark.streaming.api.java.JavaStreamingContext;
 
 /*
  * consumes messages from one or more topics in kafka and does wordCount.
@@ -62,13 +85,42 @@ public class TwitterSparkStreamingConsumer {
     JavaPairReceiverInputDStream<String, String> messages =
             KafkaUtils.createStream(jssc, args[0], args[1], topicMap);
 
-    JavaDStream<String> lines = messages.map(new Function<Tuple2<String, String>, String>() {
+    JavaDStream<String> statuses = messages.map(new Function<Tuple2<String, String>, String>() {
       @Override
       public String call(Tuple2<String, String> tuple2) {
         return tuple2._2();
       }
     });
 
+    statuses.print();
+
+
+    // Convert RDDs of the statuses DStream to DataFrame and run SQL query
+    statuses.foreachRDD(new Function2<JavaRDD<String>, Time, Void>() {
+        @Override
+        public Void call(JavaRDD<String> rdd, Time time) {
+            SQLContext sqlContext = JavaSQLContextSingleton.getInstance(rdd.context());
+            sqlContext.setConf("spark.sql.tungsten.enabled", "false");
+
+            JavaRDD<Row> tweetRowRDD = rdd.map(new TweetMapLoadFunction());
+
+            DataFrame statusesDataFrame = sqlContext.createDataFrame(tweetRowRDD, tweetSchema.createTweetStructType());
+            statusesDataFrame.show();
+            /*
+            if (statusesDataFrame.count() > 0) {
+                //persist tweet status into the database.
+                statusesDataFrame.write().
+                    mode(SaveMode.Append).
+                    format("com.objy.spark.sql").
+                    option("objy.BootFilePath",bootFile+"lh4.boot").
+                    option("objy.DataClassName", "Tweet").save();
+            }
+            */
+            return null;
+        }
+    });
+
+    /*
     JavaDStream<String> words = lines.flatMap(new FlatMapFunction<String, String>() {
       @Override
       public Iterable<String> call(String x) {
@@ -90,12 +142,29 @@ public class TwitterSparkStreamingConsumer {
       });
 
     wordCounts.print();
+    */
+
+
     jssc.start();
     jssc.awaitTermination();
 
   }//end main()
 
 }//end class TwitterSparkStreamingConsumer
+
+
+
+/** lazily instantiated singleton instance of SQLContext */
+class JavaSQLContextSingleton {
+    private static transient SQLContext instance = null;
+    public static SQLContext getInstance(SparkContext sparkContext) {
+        if (instance == null) {
+            instance = new SQLContext(sparkContext);
+        }
+        return instance;
+    }
+}
+
 
 
 

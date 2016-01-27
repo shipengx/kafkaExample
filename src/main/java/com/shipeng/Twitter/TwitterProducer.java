@@ -89,7 +89,7 @@ public class TwitterProducer {
             GeoLocation geoLocation = status.getGeoLocation();
             if (geoLocation != null) {
                 String text = status.getText().replaceAll("[\r\n]", " ");
-                String line = geoLocation.getLongitude()+",,,"+geoLocation.getLatitude()+",,,"+status.getCreatedAt().getTime()+",,,"+status.getUser().getId()+",,,"+text;
+                String line = geoLocation.getLongitude()+",,,,"+geoLocation.getLatitude()+",,,,"+status.getCreatedAt().getTime()+",,,,"+status.getUser().getId()+",,,,"+text;
                 System.out.println("Message is: " + line);
                 KeyedMessage<String, String> data = new KeyedMessage<String, String>(topic, line);
                 producer.send(data);
